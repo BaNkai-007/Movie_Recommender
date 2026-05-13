@@ -326,7 +326,7 @@ def load_data():
     return movies, ratings
 
 
-# ==================== FEATURE ENGINEERING ====================
+# FEATURE ENGINEERING
 def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     """Create features for clustering. Uses only genres for clustering."""
     movies = movies.copy()
@@ -351,6 +351,17 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
 
 
 # CLUSTERING
+def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
+    """Find best number of clusters using Elbow and Silhouette methods."""
+    inertias, silhouettes = [], []
+    for k in k_range:
+        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels = km.fit_predict(features)
+        inertias.append(km.inertia_)
+        sil = silhouette_score(features, labels, sample_size=min(300, len(features)))
+        silhouettes.append(sil)
+    return list(k_range), inertias, silhouettes
+    
 def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
     """Run KMeans clustering on genre features."""
     km = KMeans(n_clusters=n_clusters, random_state=42, n_init=40, max_iter=500)
@@ -406,7 +417,7 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
     return cluster_names, cluster_descriptions
 
 
-# ==================== RECOMMENDATION ====================
+# RECOMMENDATION
 def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
     """Recommend similar movies from the same cluster."""
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
