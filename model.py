@@ -1,8 +1,3 @@
-"""
-Movie Recommender - Unsupervised Learning Core
-Uses K-Means clustering on movie genre + metadata features
-"""
-
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
@@ -12,9 +7,7 @@ from sklearn.metrics import silhouette_score
 import warnings
 warnings.filterwarnings("ignore")
 
-
-#Movie Dataset( AI generated)
-
+# MOVIES DATA
 MOVIES_DATA = [
     # (title, year, genres, avg_rating, num_ratings)
     ("Toy Story", 1995, "Animation|Comedy|Family", 4.0, 452),
@@ -313,10 +306,7 @@ MOVIES_DATA = [
     ("The Karate Kid", 1984, "Drama|Sport", 3.9, 410),
     ("Whiplash", 2014, "Drama|Music", 4.4, 500),
 ]
-
-
 def load_data():
-    """Load built-in real movie dataset."""
     records = []
     for i, (title, year, genres, avg_rating, num_ratings) in enumerate(MOVIES_DATA):
         records.append({
@@ -327,21 +317,17 @@ def load_data():
             "num_ratings": num_ratings,
             "year": float(year)
         })
-
     movies = pd.DataFrame(records)
-    # Fake ratings table (not used for avg, but needed for compatibility)
     ratings = pd.DataFrame({"userId": [], "movieId": [], "rating": []})
     return movies, ratings
 
 
-#Feature Engineering
-
+# FEATURE ENGINEERING
 def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     movies = movies.copy()
     movies["genres_list"] = movies["genres"].str.split("|")
     movies = movies[movies["genres"] != "(no genres listed)"]
 
-    # No numeric features
     mlb = MultiLabelBinarizer()
     genre_matrix = pd.DataFrame(
         mlb.fit_transform(movies["genres_list"]),
@@ -352,18 +338,14 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     # Scaling
     scaler = StandardScaler()
     numeric = scaler.fit_transform(movies[["avg_rating", "num_ratings", "year"]])
-    numeric_df = pd.DataFrame(numeric, 
-                              columns=["avg_rating", "num_ratings", "year"], 
-                              index=movies.index)
+    numeric_df = pd.DataFrame(numeric, columns=["avg_rating", "num_ratings", "year"], index=movies.index)
 
-    # Returning both
-    features = genre_matrix
-    return movies.reset_index(drop=True), features, mlb.classes_, numeric_df
+    features = genre_matrix   # genres for clustering
+    return movies.reset_index(drop=True), features, mlb.classes_
 
 
-#Clustering
-
-def auto_name_clusters(movies_df, labels, n_clusters=8):
+# CLUSTERING
+def auto_name_clusters(movies_df, labels, n_clusters=18):
     GENRE_EMOJIS = {
         "Action": "💥", "Comedy": "😂", "Drama": "💔",
         "Sci-Fi": "🚀", "Thriller": "😱", "Horror": "👻",
@@ -374,12 +356,12 @@ def auto_name_clusters(movies_df, labels, n_clusters=8):
         "History": "📜", "Music": "🎸", "Documentary": "🎥",
     }
 
+
     cluster_names = {}
     cluster_descriptions = {}
 
     for cluster_id in range(n_clusters):
         cluster_movies = movies_df[labels == cluster_id]
-
         genre_counts = {}
         for genres in cluster_movies["genres_list"]:
             for genre in genres:
@@ -394,25 +376,12 @@ def auto_name_clusters(movies_df, labels, n_clusters=8):
         top = sorted_genres[0][0]
         second = sorted_genres[1][0] if len(sorted_genres) > 1 else ""
         emoji = GENRE_EMOJIS.get(top, "🎬")
-
         cluster_names[cluster_id] = f"{emoji} {top} & {second}" if second else f"{emoji} {top}"
         cluster_descriptions[cluster_id] = (
             f"Dominated by {top} ({genre_counts[top]} movies) · "
             f"Avg rating: {cluster_movies['avg_rating'].mean():.2f}⭐"
         )
-
     return cluster_names, cluster_descriptions
-
-
-def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
-    inertias, silhouettes = [], []
-    for k in k_range:
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
-        labels = km.fit_predict(features)
-        inertias.append(km.inertia_)
-        sil = silhouette_score(features, labels, sample_size=min(300, len(features)))
-        silhouettes.append(sil)
-    return list(k_range), inertias, silhouettes
 
 
 def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
@@ -427,9 +396,8 @@ def reduce_dimensions(features: pd.DataFrame):
     return coords, pca.explained_variance_ratio_
 
 
-#Recommendation Engine
-
-def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, numeric_df: pd.DataFrame = None, top_n: int = 8):
+# RECOMMENDATION
+def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
     matches = movies_df[mask]
 
@@ -444,26 +412,19 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
     cluster_movies_df = movies_df[cluster_mask].copy()
     cluster_movies_df = cluster_movies_df[cluster_movies_df.index != idx]
 
-    # numeric features for scoring
-    if numeric_df is not None:
-        cluster_movies_df["score"] = (
-            cluster_movies_df["avg_rating"] * np.log1p(cluster_movies_df["num_ratings"])
-        )
-    else:
-        cluster_movies_df["score"] = cluster_movies_df["avg_rating"]
-
+    cluster_movies_df["score"] = (
+        cluster_movies_df["avg_rating"] * np.log1p(cluster_movies_df["num_ratings"])
+    )
     recs = cluster_movies_df.nlargest(top_n, "score")
     return movie, cluster_id, recs
 
 
-#Pipeline
-
+# PIPELINE
 def run_pipeline():
     movies_raw, ratings_raw = load_data()
-    movies_df, features, genre_cols, numeric_df = build_features(movies_raw, ratings_raw)
+    movies_df, features, genre_cols = build_features(movies_raw, ratings_raw)
     
     km_model, labels = cluster_movies(features, n_clusters=18)
-    
     coords, var_ratio = reduce_dimensions(features)
     
     movies_df["cluster"] = labels
@@ -473,4 +434,4 @@ def run_pipeline():
     global CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
     CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=18)
     
-    return movies_df, features, km_model, labels, coords, var_ratio, genre_cols, numeric_df
+    return movies_df, features, km_model, labels, coords, var_ratio, genre_cols
