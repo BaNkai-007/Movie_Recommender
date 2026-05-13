@@ -381,7 +381,7 @@ def reduce_dimensions(features: pd.DataFrame):
 
 
 def auto_name_clusters(movies_df, labels, n_clusters=18):
-    """Automatically name clusters based on dominant genres."""
+    """Automatically name clusters based on dominant genres (improved version)."""
     GENRE_EMOJIS = {
         "Action": "💥", "Comedy": "😂", "Drama": "💔",
         "Sci-Fi": "🚀", "Thriller": "😱", "Horror": "👻",
@@ -397,22 +397,42 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
 
     for cluster_id in range(n_clusters):
         cluster_movies = movies_df[labels == cluster_id]
+        
+        # Count genres in this cluster
         genre_counts = {}
         for genres in cluster_movies["genres_list"]:
-            for genre in genres:
-                genre_counts[genre] = genre_counts.get(genre, 0) + 1
+            if isinstance(genres, list):
+                for genre in genres:
+                    genre_counts[genre] = genre_counts.get(genre, 0) + 1
 
         if not genre_counts:
-            cluster_names[cluster_id] = f"Cluster {cluster_id}"
-            cluster_descriptions[cluster_id] = "Mixed collection of films."
+            # Fallback: use the first movie's genres if available
+            if len(cluster_movies) > 0:
+                first_genres = cluster_movies.iloc[0].get("genres_list", [])
+                if isinstance(first_genres, list) and len(first_genres) > 0:
+                    top = first_genres[0]
+                    emoji = GENRE_EMOJIS.get(top, "🎬")
+                    cluster_names[cluster_id] = f"{emoji} {top}"
+                    cluster_descriptions[cluster_id] = f"Cluster with {len(cluster_movies)} movies"
+                else:
+                    cluster_names[cluster_id] = f"Cluster {cluster_id}"
+                    cluster_descriptions[cluster_id] = "Mixed collection of films."
+            else:
+                cluster_names[cluster_id] = f"Cluster {cluster_id}"
+                cluster_descriptions[cluster_id] = "Empty cluster."
             continue
 
+        # Normal case: get top genres
         sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
         top = sorted_genres[0][0]
         second = sorted_genres[1][0] if len(sorted_genres) > 1 else ""
         emoji = GENRE_EMOJIS.get(top, "🎬")
 
-        cluster_names[cluster_id] = f"{emoji} {top} & {second}" if second else f"{emoji} {top}"
+        if second:
+            cluster_names[cluster_id] = f"{emoji} {top} & {second}"
+        else:
+            cluster_names[cluster_id] = f"{emoji} {top}"
+
         cluster_descriptions[cluster_id] = (
             f"Dominated by {top} ({genre_counts[top]} movies) · "
             f"Avg rating: {cluster_movies['avg_rating'].mean():.2f}⭐"
