@@ -3,6 +3,7 @@ import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_score
 import warnings
 warnings.filterwarnings("ignore")
 
