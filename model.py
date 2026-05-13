@@ -13,9 +13,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-# ─────────────────────────────────────────────
-# 1. BUILT-IN MOVIE DATASET (real titles)
-# ─────────────────────────────────────────────
+#Movie Dataset( AI generated)
 
 MOVIES_DATA = [
     # (title, year, genres, avg_rating, num_ratings)
@@ -336,9 +334,7 @@ def load_data():
     return movies, ratings
 
 
-# ─────────────────────────────────────────────
-# 2. FEATURE ENGINEERING
-# ─────────────────────────────────────────────
+#Feature Engineering
 
 def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     movies = movies.copy()
@@ -360,31 +356,47 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     return movies.reset_index(drop=True), features, mlb.classes_
 
 
-# ─────────────────────────────────────────────
-# 3. CLUSTERING
-# ─────────────────────────────────────────────
+#Clustering
 
-CLUSTER_NAMES = {
-    0: "🎬 Blockbuster Action",
-    1: "😂 Feel-Good Comedy",
-    2: "💔 Emotional Dramas",
-    3: "🚀 Sci-Fi & Adventure",
-    4: "😱 Dark Thrillers",
-    5: "🎥 Indie & Art House",
-    6: "💑 Romance & Family",
-    7: "🌍 World & Documentary",
-}
+def auto_name_clusters(movies_df, labels, n_clusters=8):
+    GENRE_EMOJIS = {
+        "Action": "💥", "Comedy": "😂", "Drama": "💔",
+        "Sci-Fi": "🚀", "Thriller": "😱", "Horror": "👻",
+        "Romance": "💑", "Animation": "🎨", "Adventure": "🗺️",
+        "Crime": "🔫", "Fantasy": "🧙", "War": "⚔️",
+        "Musical": "🎵", "Mystery": "🔍", "Biography": "📖",
+        "Children": "🧸", "Western": "🤠", "Sport": "🏆",
+        "History": "📜", "Music": "🎸", "Documentary": "🎥",
+    }
 
-CLUSTER_DESCRIPTIONS = {
-    0: "High-octane films packed with stunts, heroes, and spectacle.",
-    1: "Light, fun movies perfect for a mood lift.",
-    2: "Deep, character-driven stories that hit you in the feels.",
-    3: "Mind-bending futures and epic journeys beyond Earth.",
-    4: "Edge-of-your-seat suspense and psychological tension.",
-    5: "Unique, unconventional films for the true cinephile.",
-    6: "Heartwarming stories about love, family, and connection.",
-    7: "Real-world stories and global perspectives.",
-}
+    cluster_names = {}
+    cluster_descriptions = {}
+
+    for cluster_id in range(n_clusters):
+        cluster_movies = movies_df[labels == cluster_id]
+
+        genre_counts = {}
+        for genres in cluster_movies["genres_list"]:
+            for genre in genres:
+                genre_counts[genre] = genre_counts.get(genre, 0) + 1
+
+        if not genre_counts:
+            cluster_names[cluster_id] = f"🎬 Cluster {cluster_id}"
+            cluster_descriptions[cluster_id] = "Mixed collection of films."
+            continue
+
+        sorted_genres = sorted(genre_counts.items(), key=lambda x: x[1], reverse=True)
+        top = sorted_genres[0][0]
+        second = sorted_genres[1][0] if len(sorted_genres) > 1 else ""
+        emoji = GENRE_EMOJIS.get(top, "🎬")
+
+        cluster_names[cluster_id] = f"{emoji} {top} & {second}" if second else f"{emoji} {top}"
+        cluster_descriptions[cluster_id] = (
+            f"Dominated by {top} ({genre_counts[top]} movies) · "
+            f"Avg rating: {cluster_movies['avg_rating'].mean():.2f}⭐"
+        )
+
+    return cluster_names, cluster_descriptions
 
 
 def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
@@ -410,9 +422,7 @@ def reduce_dimensions(features: pd.DataFrame):
     return coords, pca.explained_variance_ratio_
 
 
-# ─────────────────────────────────────────────
-# 4. RECOMMENDATION ENGINE
-# ─────────────────────────────────────────────
+#Recommendation Engine
 
 def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
@@ -436,9 +446,7 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
     return movie, cluster_id, recs
 
 
-# ─────────────────────────────────────────────
-# 5. PIPELINE
-# ─────────────────────────────────────────────
+#Pipeline
 
 def run_pipeline():
     movies_raw, ratings_raw = load_data()
@@ -448,4 +456,6 @@ def run_pipeline():
     movies_df["cluster"] = labels
     movies_df["pca_x"] = coords[:, 0]
     movies_df["pca_y"] = coords[:, 1]
+    global CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
+    CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=8)
     return movies_df, features, km_model, labels, coords, var_ratio, genre_cols
