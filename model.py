@@ -3,11 +3,11 @@ import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer, StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
-from sklearn.metrics import silhouette_score
 import warnings
 warnings.filterwarnings("ignore")
 
-# MOVIES DATA
+
+# MOVIE DATASET
 MOVIES_DATA = [
     # (title, year, genres, avg_rating, num_ratings)
     ("Toy Story", 1995, "Animation|Comedy|Family", 4.0, 452),
@@ -306,7 +306,11 @@ MOVIES_DATA = [
     ("The Karate Kid", 1984, "Drama|Sport", 3.9, 410),
     ("Whiplash", 2014, "Drama|Music", 4.4, 500),
 ]
+
+
+# LOAD DATA
 def load_data():
+    """Load the movie dataset."""
     records = []
     for i, (title, year, genres, avg_rating, num_ratings) in enumerate(MOVIES_DATA):
         records.append({
@@ -322,12 +326,14 @@ def load_data():
     return movies, ratings
 
 
-# FEATURE ENGINEERING
+# ==================== FEATURE ENGINEERING ====================
 def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
+    """Create features for clustering. Uses only genres for clustering."""
     movies = movies.copy()
     movies["genres_list"] = movies["genres"].str.split("|")
     movies = movies[movies["genres"] != "(no genres listed)"]
 
+    # Genre encoding
     mlb = MultiLabelBinarizer()
     genre_matrix = pd.DataFrame(
         mlb.fit_transform(movies["genres_list"]),
@@ -335,17 +341,32 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
         index=movies.index
     )
 
-    # Scaling
+    # Numeric feature
     scaler = StandardScaler()
     numeric = scaler.fit_transform(movies[["avg_rating", "num_ratings", "year"]])
     numeric_df = pd.DataFrame(numeric, columns=["avg_rating", "num_ratings", "year"], index=movies.index)
 
-    features = genre_matrix   # genres for clustering
+    features = genre_matrix   # Only genres used for clustering
     return movies.reset_index(drop=True), features, mlb.classes_
 
 
 # CLUSTERING
+def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
+    """Run KMeans clustering on genre features."""
+    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=40, max_iter=500)
+    labels = km.fit_predict(features)
+    return km, labels
+
+
+def reduce_dimensions(features: pd.DataFrame):
+    """Reduce features to 2D using PCA for visualization."""
+    pca = PCA(n_components=2, random_state=42)
+    coords = pca.fit_transform(features)
+    return coords, pca.explained_variance_ratio_
+
+
 def auto_name_clusters(movies_df, labels, n_clusters=18):
+    """Automatically name clusters based on dominant genres."""
     GENRE_EMOJIS = {
         "Action": "💥", "Comedy": "😂", "Drama": "💔",
         "Sci-Fi": "🚀", "Thriller": "😱", "Horror": "👻",
@@ -355,7 +376,6 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
         "Children": "🧸", "Western": "🤠", "Sport": "🏆",
         "History": "📜", "Music": "🎸", "Documentary": "🎥",
     }
-
 
     cluster_names = {}
     cluster_descriptions = {}
@@ -368,7 +388,7 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
                 genre_counts[genre] = genre_counts.get(genre, 0) + 1
 
         if not genre_counts:
-            cluster_names[cluster_id] = f"🎬 Cluster {cluster_id}"
+            cluster_names[cluster_id] = f"Cluster {cluster_id}"
             cluster_descriptions[cluster_id] = "Mixed collection of films."
             continue
 
@@ -376,28 +396,19 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
         top = sorted_genres[0][0]
         second = sorted_genres[1][0] if len(sorted_genres) > 1 else ""
         emoji = GENRE_EMOJIS.get(top, "🎬")
+
         cluster_names[cluster_id] = f"{emoji} {top} & {second}" if second else f"{emoji} {top}"
         cluster_descriptions[cluster_id] = (
             f"Dominated by {top} ({genre_counts[top]} movies) · "
             f"Avg rating: {cluster_movies['avg_rating'].mean():.2f}⭐"
         )
+
     return cluster_names, cluster_descriptions
 
 
-def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
-    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=40, max_iter=500)
-    labels = km.fit_predict(features)
-    return km, labels
-
-
-def reduce_dimensions(features: pd.DataFrame):
-    pca = PCA(n_components=2, random_state=42)
-    coords = pca.fit_transform(features)
-    return coords, pca.explained_variance_ratio_
-
-
-# RECOMMENDATION
+# ==================== RECOMMENDATION ====================
 def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
+    """Recommend similar movies from the same cluster."""
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
     matches = movies_df[mask]
 
@@ -419,19 +430,20 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
     return movie, cluster_id, recs
 
 
-# PIPELINE
+# MAIN PIPELINE
 def run_pipeline():
+    """Run the full pipeline: load data, create features, cluster, and prepare results."""
     movies_raw, ratings_raw = load_data()
     movies_df, features, genre_cols = build_features(movies_raw, ratings_raw)
-    
+
     km_model, labels = cluster_movies(features, n_clusters=18)
     coords, var_ratio = reduce_dimensions(features)
-    
+
     movies_df["cluster"] = labels
     movies_df["pca_x"] = coords[:, 0]
     movies_df["pca_y"] = coords[:, 1]
-    
+
     global CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
     CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=18)
-    
+
     return movies_df, features, km_model, labels, coords, var_ratio, genre_cols
