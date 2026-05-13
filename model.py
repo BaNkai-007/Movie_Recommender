@@ -7,6 +7,9 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
+CLUSTER_NAMES = {}
+CLUSTER_DESCRIPTIONS = {}
+
 # MOVIE DATASET
 MOVIES_DATA = [
     # (title, year, genres, avg_rating, num_ratings)
