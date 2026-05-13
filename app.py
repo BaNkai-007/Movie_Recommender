@@ -14,9 +14,7 @@ from model import (
     find_optimal_k, CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
 )
 
-# ─────────────────────────────────────────────
-# PAGE CONFIG
-# ─────────────────────────────────────────────
+#Page Config
 st.set_page_config(
     page_title="CineCluster",
     page_icon="🎬",
@@ -24,9 +22,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ─────────────────────────────────────────────
-# CUSTOM CSS
-# ─────────────────────────────────────────────
+#CSS
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@300;400;500;600&display=swap');
@@ -174,9 +170,7 @@ with st.spinner("🎬 Training K-Means clusters on movie data..."):
 n_movies = len(movies_df)
 n_clusters = km_model.n_clusters
 
-# ─────────────────────────────────────────────
-# SIDEBAR
-# ─────────────────────────────────────────────
+#SIDEBAR
 with st.sidebar:
     st.markdown("## 🎬 CineCluster")
     st.markdown("---")
@@ -206,9 +200,7 @@ with st.sidebar:
     st.caption("Unsupervised ML · K-Means · PCA\nDataset: MovieLens")
 
 
-# ─────────────────────────────────────────────
-# HERO
-# ─────────────────────────────────────────────
+#HERO
 st.markdown("""
 <div class="hero">
     <h1>CINECLUSTER</h1>
@@ -217,9 +209,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-# TOP STATS ROW
-# ─────────────────────────────────────────────
+#TOP STATS ROW
 s1, s2, s3, s4 = st.columns(4)
 with s1:
     st.markdown(f"""<div class="stat-box"><div class="stat-num">{n_movies:,}</div><div class="stat-label">Movies Clustered</div></div>""", unsafe_allow_html=True)
@@ -232,15 +222,11 @@ with s4:
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ─────────────────────────────────────────────
-# TABS
-# ─────────────────────────────────────────────
+#TABS
 tab1, tab2, tab3 = st.tabs(["🔍 Recommend", "🗺️ Cluster Map", "📊 Analysis"])
 
 
-# ══════════════════════════════════════════════
-# TAB 1 — RECOMMEND
-# ══════════════════════════════════════════════
+#TAB - 1 
 with tab1:
     col_left, col_right = st.columns([1, 1.4], gap="large")
 
@@ -315,9 +301,7 @@ with tab1:
             """, unsafe_allow_html=True)
 
 
-# ══════════════════════════════════════════════
-# TAB 2 — CLUSTER MAP
-# ══════════════════════════════════════════════
+#TAB 2
 with tab2:
     st.markdown("### 🗺️ Movie Cluster Map (PCA 2D)")
     st.caption(f"Each dot = one movie. K-Means found **{n_clusters} natural groupings**. PCA explains {sum(var_ratio)*100:.1f}% of variance.")
@@ -358,9 +342,7 @@ with tab2:
     st.plotly_chart(fig, use_container_width=True)
 
 
-# ══════════════════════════════════════════════
-# TAB 3 — ANALYSIS
-# ══════════════════════════════════════════════
+#TAB 3
 with tab3:
     st.markdown("### 📊 Model Analysis")
 
