@@ -410,8 +410,8 @@ def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
     return list(k_range), inertias, silhouettes
 
 
-def cluster_movies(features: pd.DataFrame, n_clusters: int = 8):
-    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=15, max_iter=300)
+def cluster_movies(features: pd.DataFrame, n_clusters: int = 12):
+    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=20, max_iter=400)
     labels = km.fit_predict(features)
     return km, labels
 
@@ -451,11 +451,17 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
 def run_pipeline():
     movies_raw, ratings_raw = load_data()
     movies_df, features, genre_cols = build_features(movies_raw, ratings_raw)
-    km_model, labels = cluster_movies(features, n_clusters=8)
+    
+    # Change here for clustering
+    km_model, labels = cluster_movies(features, n_clusters=12)
+    
     coords, var_ratio = reduce_dimensions(features)
+    
     movies_df["cluster"] = labels
     movies_df["pca_x"] = coords[:, 0]
     movies_df["pca_y"] = coords[:, 1]
+    
     global CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
-    CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=8)
+    CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=12)
+    
     return movies_df, features, km_model, labels, coords, var_ratio, genre_cols
