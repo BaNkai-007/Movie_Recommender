@@ -341,6 +341,7 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
     movies["genres_list"] = movies["genres"].str.split("|")
     movies = movies[movies["genres"] != "(no genres listed)"]
 
+    # No numeric features
     mlb = MultiLabelBinarizer()
     genre_matrix = pd.DataFrame(
         mlb.fit_transform(movies["genres_list"]),
@@ -348,12 +349,16 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
         index=movies.index
     )
 
+    # Scaling
     scaler = StandardScaler()
     numeric = scaler.fit_transform(movies[["avg_rating", "num_ratings", "year"]])
-    numeric_df = pd.DataFrame(numeric, columns=["avg_rating", "num_ratings", "year"], index=movies.index)
+    numeric_df = pd.DataFrame(numeric, 
+                              columns=["avg_rating", "num_ratings", "year"], 
+                              index=movies.index)
 
-    features = pd.concat([genre_matrix, numeric_df], axis=1)
-    return movies.reset_index(drop=True), features, mlb.classes_
+    # Returning both
+    features = genre_matrix
+    return movies.reset_index(drop=True), features, mlb.classes_, numeric_df
 
 
 #Clustering
@@ -410,8 +415,8 @@ def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
     return list(k_range), inertias, silhouettes
 
 
-def cluster_movies(features: pd.DataFrame, n_clusters: int = 12):
-    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=20, max_iter=400)
+def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
+    km = KMeans(n_clusters=n_clusters, random_state=42, n_init=40, max_iter=500)
     labels = km.fit_predict(features)
     return km, labels
 
@@ -424,7 +429,7 @@ def reduce_dimensions(features: pd.DataFrame):
 
 #Recommendation Engine
 
-def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
+def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, numeric_df: pd.DataFrame = None, top_n: int = 8):
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
     matches = movies_df[mask]
 
@@ -438,11 +443,16 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
     cluster_mask = labels == cluster_id
     cluster_movies_df = movies_df[cluster_mask].copy()
     cluster_movies_df = cluster_movies_df[cluster_movies_df.index != idx]
-    cluster_movies_df["score"] = (
-        cluster_movies_df["avg_rating"] * np.log1p(cluster_movies_df["num_ratings"])
-    )
-    recs = cluster_movies_df.nlargest(top_n, "score")
 
+    # numeric features for scoring
+    if numeric_df is not None:
+        cluster_movies_df["score"] = (
+            cluster_movies_df["avg_rating"] * np.log1p(cluster_movies_df["num_ratings"])
+        )
+    else:
+        cluster_movies_df["score"] = cluster_movies_df["avg_rating"]
+
+    recs = cluster_movies_df.nlargest(top_n, "score")
     return movie, cluster_id, recs
 
 
@@ -450,10 +460,9 @@ def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame,
 
 def run_pipeline():
     movies_raw, ratings_raw = load_data()
-    movies_df, features, genre_cols = build_features(movies_raw, ratings_raw)
+    movies_df, features, genre_cols, numeric_df = build_features(movies_raw, ratings_raw)
     
-    # Change here for clustering
-    km_model, labels = cluster_movies(features, n_clusters=12)
+    km_model, labels = cluster_movies(features, n_clusters=18)
     
     coords, var_ratio = reduce_dimensions(features)
     
@@ -462,6 +471,6 @@ def run_pipeline():
     movies_df["pca_y"] = coords[:, 1]
     
     global CLUSTER_NAMES, CLUSTER_DESCRIPTIONS
-    CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=12)
+    CLUSTER_NAMES, CLUSTER_DESCRIPTIONS = auto_name_clusters(movies_df, labels, n_clusters=18)
     
-    return movies_df, features, km_model, labels, coords, var_ratio, genre_cols
+    return movies_df, features, km_model, labels, coords, var_ratio, genre_cols, numeric_df
