@@ -57,32 +57,6 @@ The app opens at **http://localhost:8501** in your browser.
 
 ---
 
-## 🎯 How to Demo in Class
-
-1. **Tab 1 — Recommend**: Type any movie (e.g. "Toy Story", "Matrix", "Batman")
-   → Shows which cluster it belongs to + 6 recommendations from the same cluster
-
-2. **Tab 2 — Cluster Map**: 2D PCA scatter plot — every dot is a movie,
-   colored by cluster. Hover to see movie names.
-
-3. **Tab 3 — Analysis**:
-   - Cluster sizes bar chart
-   - Avg rating per cluster
-   - **Elbow + Silhouette curve** (explains why K=8)
-   - Genre heatmap (proves clustering is meaningful)
-
----
-
-## 📊 Talking Points for Presentation
-
-- "We used **unsupervised** learning — no labels, the algorithm discovered structure on its own"
-- "K-Means minimizes intra-cluster variance — movies in the same cluster are more similar to each other than to movies outside"
-- "We validated K=8 using the **silhouette score** (closer to 1.0 = better separation)"
-- "PCA helps us visualize 20+ dimensional data in 2D while preserving most variance"
-- "The recommendation engine runs in O(n) — just find the cluster, rank by rating × log(popularity)"
-
----
-
 ## 🔧 Try Different Movies
 
 | Movie | Expected Cluster |
