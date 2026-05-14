@@ -332,7 +332,6 @@ def load_data():
 
 # FEATURE ENGINEERING
 def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
-    """Create features for clustering. Uses only genres for clustering."""
     movies = movies.copy()
     movies["genres_list"] = movies["genres"].str.split("|")
     movies = movies[movies["genres"] != "(no genres listed)"]
@@ -356,7 +355,6 @@ def build_features(movies: pd.DataFrame, ratings: pd.DataFrame):
 
 # CLUSTERING
 def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
-    """Find best number of clusters using Elbow and Silhouette methods."""
     inertias, silhouettes = [], []
     for k in k_range:
         km = KMeans(n_clusters=k, random_state=42, n_init=10)
@@ -367,21 +365,18 @@ def find_optimal_k(features: pd.DataFrame, k_range=range(4, 12)):
     return list(k_range), inertias, silhouettes
     
 def cluster_movies(features: pd.DataFrame, n_clusters: int = 18):
-    """Run KMeans clustering on genre features."""
     km = KMeans(n_clusters=n_clusters, random_state=42, n_init=40, max_iter=500)
     labels = km.fit_predict(features)
     return km, labels
 
 
 def reduce_dimensions(features: pd.DataFrame):
-    """Reduce features to 2D using PCA for visualization."""
     pca = PCA(n_components=2, random_state=42)
     coords = pca.fit_transform(features)
     return coords, pca.explained_variance_ratio_
 
 
 def auto_name_clusters(movies_df, labels, n_clusters=18):
-    """SUPER ROBUST version - guarantees every cluster gets a proper genre name."""
     GENRE_EMOJIS = {
         "Action": "💥", "Comedy": "😂", "Drama": "💔",
         "Sci-Fi": "🚀", "Thriller": "😱", "Horror": "👻",
@@ -403,7 +398,7 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
             cluster_descriptions[cluster_id] = "Empty cluster"
             continue
 
-        # Count genres
+        # Counting genres
         genre_counts = {}
         for genres in cluster_movies["genres_list"]:
             if isinstance(genres, list):
@@ -413,7 +408,7 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
                 for g in genres.split("|"):
                     genre_counts[g] = genre_counts.get(g, 0) + 1
 
-        # If still no counts, take genre from first movie
+        # If still no counts, we take genre from first movie
         if not genre_counts and len(cluster_movies) > 0:
             first_genres = cluster_movies.iloc[0]["genres_list"]
             if isinstance(first_genres, list) and first_genres:
@@ -444,7 +439,6 @@ def auto_name_clusters(movies_df, labels, n_clusters=18):
 
 # RECOMMENDATION
 def recommend(movie_title: str, movies_df: pd.DataFrame, features: pd.DataFrame, labels: np.ndarray, top_n: int = 8):
-    """Recommend similar movies from the same cluster."""
     mask = movies_df["title"].str.lower().str.contains(movie_title.lower(), na=False)
     matches = movies_df[mask]
 
