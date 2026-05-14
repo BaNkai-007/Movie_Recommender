@@ -315,15 +315,23 @@ MOVIES_DATA = [
 # LOADING DATA
 def load_data():
     records = []
+    seen = set()
+    
     for i, (title, year, genres, avg_rating, num_ratings) in enumerate(MOVIES_DATA):
+        clean_title = f"{title} ({year})"
+        if clean_title in seen:
+            continue    # skips duplicate
+        seen.add(clean_title)
+        
         records.append({
             "movieId": i + 1,
-            "title": f"{title} ({year})",
+            "title": clean_title,
             "genres": genres,
             "avg_rating": avg_rating,
             "num_ratings": num_ratings,
             "year": float(year)
         })
+    
     movies = pd.DataFrame(records)
     ratings = pd.DataFrame({"userId": [], "movieId": [], "rating": []})
     return movies, ratings
