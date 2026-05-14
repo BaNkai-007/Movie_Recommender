@@ -1,8 +1,3 @@
-"""
-🎬 CineCluster — Movie Recommender using K-Means Unsupervised Learning
-Streamlit App
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -150,15 +145,40 @@ div[data-testid="stSelectbox"] > div {
 .stTabs [data-baseweb="tab"] { color: var(--muted); }
 .stTabs [aria-selected="true"] { color: var(--accent) !important; }
 
-/* Hide streamlit defaults */
-#MainMenu, footer, header { visibility: hidden; }
+/* Hide streamlit defaults but KEEP sidebar toggle */
+#MainMenu, footer { visibility: hidden; }
+
+header[data-testid="stHeader"] {
+    visibility: hidden;
+}
+
+/* Restore and style sidebar toggle button */
+header[data-testid="stHeader"] button[aria-label*="sidebar"] {
+    visibility: visible !important;
+    position: fixed !important;
+    top: 14px !important;
+    left: 14px !important;
+    z-index: 9999 !important;
+    background-color: var(--surface) !important;
+    border: 1px solid var(--border) !important;
+    color: var(--accent) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+}
+
+header[data-testid="stHeader"] button[aria-label*="sidebar"]:hover {
+    background-color: var(--surface2) !important;
+    border-color: var(--accent) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-# LOAD MODEL (cached)
-# ─────────────────────────────────────────────
+
+# LOAD MODEL
+
 @st.cache_resource(show_spinner=False)
 def load_model():
     return run_pipeline()
@@ -308,150 +328,4 @@ with tab2:
 
     # Build plot df
     plot_df = movies_df.copy()
-    plot_df["cluster_name"] = plot_df["cluster"].map(lambda c: CLUSTER_NAMES.get(c, f"Cluster {c}"))
-    plot_df["hover"] = plot_df["title"] + "<br>" + plot_df["genres"] + "<br>⭐ " + plot_df["avg_rating"].round(2).astype(str)
-    plot_df["size"] = np.log1p(plot_df["num_ratings"]) + 3
-
-    colors = [
-        "#e8b04b", "#e85d4b", "#4be8b0", "#4b8de8",
-        "#b04be8", "#e84bb0", "#4be84b", "#e8e84b"
-    ]
-
-    fig = px.scatter(
-        plot_df,
-        x="pca_x", y="pca_y",
-        color="cluster_name",
-        size="size",
-        hover_name="title",
-        hover_data={"pca_x": False, "pca_y": False, "size": False, "genres": True, "avg_rating": ":.2f"},
-        color_discrete_sequence=colors,
-        title="",
-        height=580,
-    )
-    fig.update_traces(marker=dict(opacity=0.72, line=dict(width=0)))
-    fig.update_layout(
-        plot_bgcolor="#0a0a0f",
-        paper_bgcolor="#0a0a0f",
-        font_color="#e8e8f0",
-        legend_title_text="Cluster",
-        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
-        yaxis=dict(showgrid=False, zeroline=False, showticklabels=False, title=""),
-        legend=dict(bgcolor="rgba(0,0,0,0)", bordercolor="rgba(232,176,75,0.2)", borderwidth=1),
-        margin=dict(l=20, r=20, t=20, b=20)
-    )
-    st.plotly_chart(fig, use_container_width=True)
-
-
-#TAB 3
-with tab3:
-    st.markdown("### 📊 Model Analysis")
-
-    col_a, col_b = st.columns(2)
-
-    # Cluster sizes
-    with col_a:
-        cluster_counts = movies_df["cluster"].value_counts().sort_index()
-        cluster_counts.index = cluster_counts.index.map(lambda c: CLUSTER_NAMES.get(c, f"Cluster {c}"))
-
-        fig2 = px.bar(
-            x=cluster_counts.values,
-            y=cluster_counts.index,
-            orientation="h",
-            title="Movies per Cluster",
-            color=cluster_counts.values,
-            color_continuous_scale=["#e85d4b", "#e8b04b"],
-            height=360,
-        )
-        fig2.update_layout(
-            plot_bgcolor="#0a0a0f", paper_bgcolor="#13131a",
-            font_color="#e8e8f0", showlegend=False,
-            coloraxis_showscale=False,
-            xaxis_title="Movie Count", yaxis_title="",
-            margin=dict(l=10, r=20, t=40, b=20)
-        )
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # Avg rating per cluster
-    with col_b:
-        avg_ratings = movies_df.groupby("cluster")["avg_rating"].mean().sort_index()
-        avg_ratings.index = avg_ratings.index.map(lambda c: CLUSTER_NAMES.get(c, f"Cluster {c}"))
-
-        fig3 = px.bar(
-            x=avg_ratings.values,
-            y=avg_ratings.index,
-            orientation="h",
-            title="Avg Rating per Cluster",
-            color=avg_ratings.values,
-            color_continuous_scale=["#4b8de8", "#4be8b0"],
-            height=360,
-        )
-        fig3.update_layout(
-            plot_bgcolor="#0a0a0f", paper_bgcolor="#13131a",
-            font_color="#e8e8f0", showlegend=False,
-            coloraxis_showscale=False,
-            xaxis_title="Avg Rating", yaxis_title="",
-            margin=dict(l=10, r=20, t=40, b=20)
-        )
-        st.plotly_chart(fig3, use_container_width=True)
-
-    # Elbow + Silhouette
-    st.markdown("### Optimal K — Elbow & Silhouette Analysis")
-    st.caption("This shows WHY we picked K=8 clusters. The elbow method and silhouette score guide the choice.")
-
-    with st.spinner("Computing elbow curve..."):
-        k_vals, inertias, silhouettes = find_optimal_k(features, k_range=range(3, 13))
-
-    fig4 = go.Figure()
-    fig4.add_trace(go.Scatter(
-        x=k_vals, y=inertias, mode="lines+markers",
-        name="Inertia (Elbow)", line=dict(color="#e8b04b", width=2),
-        marker=dict(size=7)
-    ))
-    fig4.add_trace(go.Scatter(
-        x=k_vals, y=[s * max(inertias) for s in silhouettes],
-        mode="lines+markers",
-        name="Silhouette × scale", line=dict(color="#4be8b0", width=2, dash="dot"),
-        marker=dict(size=7)
-    ))
-    fig4.add_vline(x=8, line_dash="dash", line_color="#e85d4b", annotation_text="K=8 chosen")
-    fig4.update_layout(
-        plot_bgcolor="#0a0a0f", paper_bgcolor="#13131a",
-        font_color="#e8e8f0", height=350,
-        xaxis_title="Number of Clusters (K)", yaxis_title="Score",
-        legend=dict(bgcolor="rgba(0,0,0,0)"),
-        margin=dict(l=20, r=20, t=20, b=40)
-    )
-    st.plotly_chart(fig4, use_container_width=True)
-
-    # Genre heatmap
-    st.markdown("### Genre Distribution Across Clusters")
-    st.caption("Which genres dominate each cluster — proves the clustering is meaningful.")
-
-    genre_cols_list = [c for c in features.columns if c in [
-        "Action", "Adventure", "Animation", "Children", "Comedy", "Crime",
-        "Documentary", "Drama", "Fantasy", "Film-Noir", "Horror", "Musical",
-        "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"
-    ]]
-    if genre_cols_list:
-        heat_data = []
-        for c in range(n_clusters):
-            mask = labels == c
-            if mask.sum() > 0:
-                means = features.loc[movies_df[movies_df["cluster"] == c].index, genre_cols_list].mean()
-                heat_data.append(means.values)
-
-        heat_df = pd.DataFrame(heat_data, columns=genre_cols_list,
-                               index=[CLUSTER_NAMES.get(i, f"C{i}") for i in range(n_clusters)])
-
-        fig5 = px.imshow(
-            heat_df,
-            color_continuous_scale='YlOrBr',
-            title="",
-            aspect="auto",
-            height=380,
-        )
-        fig5.update_layout(
-            paper_bgcolor="#13131a", font_color="#e8e8f0",
-            margin=dict(l=20, r=20, t=10, b=20)
-        )
-        st.plotly_chart(fig5, use_container_width=True)
+    plot_df["cluster_name"] = plot_df["cluster"].map(lambda c: CLUSTER_NAMES.get(c, f"Cluster {c}
