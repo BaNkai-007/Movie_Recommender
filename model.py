@@ -312,9 +312,8 @@ MOVIES_DATA = [
 ]
 
 
-# LOAD DATA
+# LOADING DATA
 def load_data():
-    """Load the movie dataset."""
     records = []
     for i, (title, year, genres, avg_rating, num_ratings) in enumerate(MOVIES_DATA):
         records.append({
